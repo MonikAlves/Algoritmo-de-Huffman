@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_BITS 256
+
+
 typedef struct caracter {
     unsigned char caracter;
     int quantidade;
@@ -10,7 +13,6 @@ typedef struct caracter {
     struct caracter * direita;
 } Caracter;
 
-#define MAX_BITS 256
 
 typedef struct codigoHuffman {
     unsigned char caracter;
@@ -85,7 +87,7 @@ Caracter* lerTabelaEReconstruirArvore(FILE *arquivo) {
 
 void descompactarArquivo(char *arquivoCompactado, char *arquivoDescompactado) {
     FILE *entrada = fopen(arquivoCompactado, "rb");
-    FILE *saida = fopen(arquivoDescompactado, "w");
+    FILE *saida = fopen(arquivoDescompactado, "wb");
 
     if (!entrada || !saida) {
         printf("Erro ao abrir arquivos.\n");
@@ -252,17 +254,37 @@ void liberarLista(Caracter *lista) {
         free(atual);
         atual = proximo;
     }
-}z
+}
 
-int main() {
+void limparTerminal() {
+    // Comando para limpar o terminal
+    #ifdef _WIN32
+        system("cls");  // Para Windows
+    #else
+        system("clear"); // Para Linux e macOS
+    #endif
+}
+
+void exibirMenu() {
+    limparTerminal();
+    printf("=============================\n");
+    printf("=       Huffman Tree        =\n");
+    printf("=============================\n");
+    printf("= 1. Compactar Arquivo      =\n");
+    printf("= 2. Descompactar Arquivo   =\n");
+    printf("= 3. Sair                   =\n");
+    printf("=============================\n\n");
+}
+
+void compactar(char * original, char * novo){
     FILE *arquivo;
     int caracter;
     Caracter *lista = NULL;
 
-    arquivo = fopen("Arquivos_Original/Exemplo.txt", "r");
+    arquivo = fopen("Exemplo.txt", "r");
     if (arquivo == NULL) {
         printf("Erro ao abrir o arquivo.\n");
-        return 1;
+        return;
     }
 
     // Ler e processar cada caractere do arquivo
@@ -282,10 +304,56 @@ int main() {
     gerarCodigos(raiz, codigoAtual, 0, tabela, &indice);
 
     // Escrever arquivo compactado
-    descompactarArquivo( "Arquivos_Compactados/Exemplo.bin","Exemplo.txt");
+    escreverArquivoCompactado(original,novo,tabela,indice);
 
 
     liberarLista(lista);
+}
+
+void executarOpcao(int opcao, CodigoHuffman *tabela, int tamanhoTabela) {
+    char arquivoOriginal[100], arquivoCompactado[100];
+    
+    switch (opcao) {
+        case 1: 
+            printf("Digite o nome do arquivo original: ");
+            scanf("%s", arquivoOriginal);
+            printf("Digite o nome do arquivo compactado: ");
+            scanf("%s", arquivoCompactado);
+            compactar("Exemplo.txt","Exemplo.bin");
+            
+            break;
+
+        case 2:  // Descompactar Arquivo
+            printf("Digite o nome do arquivo compactado: ");
+            scanf("%s", arquivoCompactado);
+            printf("Digite o nome do arquivo descompactado: ");
+            scanf("%s", arquivoOriginal);
+            
+            descompactarArquivo("Exemplo.bin","Exemplo2.txt");
+            printf("Arquivo descompactado com sucesso!\n");
+            break;
+
+        case 3:  // Sair
+            printf("Saindo do programa...\n");
+            break;
+
+        default:
+            printf("Opção inválida! Por favor, escolha novamente.\n");
+            break;
+    }
+}
+
+int main() {
+    CodigoHuffman tabela[256];
+    int tamanhoTabela = 0;
+    int opcao;
+
+    do {
+        exibirMenu();
+        printf("Escolha uma opção: ");
+        scanf("%d", &opcao);
+        executarOpcao(opcao, tabela, tamanhoTabela);
+    } while (opcao != 3);
 
     return 0;
 }
