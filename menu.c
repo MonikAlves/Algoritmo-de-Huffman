@@ -22,9 +22,45 @@ void exibirMenu() {
     printf("=============================\n\n");
 }
 
-void executarOpcao(int opcao, CodigoHuffman *tabela, int tamanhoTabela) {
-    char * arquivoOriginal =  malloc (10000 * sizeof(char));
-    char * arquivoCompactado = malloc (10000 * sizeof(char)); 
+long tamanhoArquivo(char * caminho){
+ FILE *arquivo = fopen(caminho, "rb");
+    if (arquivo == NULL) {
+        printf("Erro ao abrir o arquivo: %s\n", caminho);
+        return -1;
+    }
+    
+    fseek(arquivo, 0, SEEK_END);
+    long tamanho = ftell(arquivo);
+    fclose(arquivo);
+    return tamanho;
+}
+
+void compararTamanhoArquivos(char *arquivo1, char *arquivo2){
+    char * caminho1 = malloc(1000 * sizeof(char));
+    char * caminho2 = malloc(1000 * sizeof(char));
+    sprintf(caminho1,"Arquivos_Originais/%s",arquivo1);
+    sprintf(caminho2,"Arquivos_Compactados/%s.bin",arquivo2);
+    long tamanho1 = tamanhoArquivo(caminho1);
+    long tamanho2 = tamanhoArquivo(caminho2);
+
+    if (tamanho1 != -1 && tamanho2 != -1) {
+        double tamanho1KB = (double)tamanho1 / 1024;
+        double tamanho2KB = (double)tamanho2 / 1024;
+        double diferencaKB = tamanho1KB - tamanho2KB;
+        double diferenca = tamanho1 - tamanho2;
+
+        printf("Tamanho do %s: %.2f KB (%.0f bytes)\n", arquivo1, tamanho1KB, (double)tamanho1);
+        printf("Tamanho do %s: %.2f KB (%.0f bytes)\n", arquivo2, tamanho2KB, (double)tamanho2);
+        printf("Diferença de tamanho: %.2f KB (%.0f bytes)\n", diferencaKB,diferenca);
+    }
+
+    free(caminho1);
+    free(caminho2);
+}
+
+void executarOpcao(int opcao) {
+    char * arquivoOriginal =  malloc (1000 * sizeof(char));
+    char * arquivoCompactado = malloc (1000 * sizeof(char)); 
     
     switch (opcao) {
         case 1: 
@@ -32,9 +68,10 @@ void executarOpcao(int opcao, CodigoHuffman *tabela, int tamanhoTabela) {
             scanf("%[^\n]%*c", arquivoOriginal);
             printf("Digite o nome do arquivo compactado: ");
             scanf("%[^\n]%*c", arquivoCompactado);
-            compactar("Exemplo.txt","Exemplo.bin");
+            compactar(arquivoOriginal,arquivoCompactado);
 
-            printf("\nArquivo compactado com sucesso!\n Aperte enter para continuar");
+            compararTamanhoArquivos(arquivoOriginal,arquivoCompactado);
+            printf("\n Aperte enter para continuar");
 
             scanf("%*c");
 
@@ -49,8 +86,8 @@ void executarOpcao(int opcao, CodigoHuffman *tabela, int tamanhoTabela) {
             printf("Digite o nome do arquivo descompactado: ");
             scanf("%[^\n]%*c", arquivoOriginal);
             
-            descompactarArquivo("Exemplo.bin","Exemplo2.txt");
-            printf("\nArquivo descompactado com sucesso!\n Aperte enter para continuar");
+            descompactar(arquivoCompactado,arquivoOriginal);
+            printf("\n Aperte enter para continuar");
 
             scanf("%*c");
 

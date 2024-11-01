@@ -5,6 +5,7 @@
 
 void limparTerminal();
 void exibirMenu();
-void executarOpcao(int opcao, CodigoHuffman *tabela, int tamanhoTabela);
+void executarOpcao(int opcao);
+void compararTamanhoArquivos(char *arquivo1, char *arquivo2);
 
 #endif

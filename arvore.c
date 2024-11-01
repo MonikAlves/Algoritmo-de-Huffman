@@ -17,7 +17,6 @@ Caracter* novoCaracter(unsigned char caracter,int quantidade) {
     return novo;
 }
 
-
 Caracter* construirArvoreHuffman(Caracter *lista) {
     while (lista != NULL && lista->proximo != NULL) {
         Caracter *primeiro = lista;
@@ -28,16 +27,18 @@ Caracter* construirArvoreHuffman(Caracter *lista) {
         novoNo->esquerda = primeiro;
         novoNo->direita = segundo;
 
-        lista = inserirOrdenado(lista, novoNo);
+        lista = ordenar(lista, novoNo);
     }
 
     return lista; 
 }
 
 Caracter* adicionarCaracter(Caracter *lista, unsigned char caracter) {
-    Caracter *atual = lista, *anterior = NULL;
+    Caracter *atual = lista;
+    Caracter *anterior = NULL;
 
-    while (atual != NULL && atual->caracter != caracter) {
+    while (atual != NULL) {
+        if(atual->caracter == caracter) break;
         anterior = atual;
         atual = atual->proximo;
     }
@@ -50,17 +51,18 @@ Caracter* adicionarCaracter(Caracter *lista, unsigned char caracter) {
         atual = novoCaracter(caracter, 1);
     }
 
-    return inserirOrdenado(lista, atual);
+    return ordenar(lista, atual);
 }
 
-Caracter* inserirOrdenado(Caracter *lista, Caracter *novo) {
+Caracter* ordenar(Caracter *lista, Caracter *novo) {
     if (lista == NULL || lista->quantidade >= novo->quantidade) {
         novo->proximo = lista;
         return novo;
     }
 
     Caracter *atual = lista;
-    while (atual->proximo != NULL && atual->proximo->quantidade < novo->quantidade) {
+    while (atual->proximo != NULL) {
+        if(atual->proximo->quantidade >= novo->quantidade) break;
         atual = atual->proximo;
     }
     novo->proximo = atual->proximo;
@@ -69,7 +71,7 @@ Caracter* inserirOrdenado(Caracter *lista, Caracter *novo) {
     return lista;
 }
 
-void gerarCodigos(Caracter *no, char *codigoAtual, int profundidade, CodigoHuffman *tabela, int *indice) {
+void criarRepresentação(Caracter *no, char *codigoAtual, int profundidade, CodigoHuffman *tabela, int *indice) {
     if (no->esquerda == NULL && no->direita == NULL) {
         codigoAtual[profundidade] = '\0';
         tabela[*indice].caracter = no->caracter;
@@ -80,16 +82,79 @@ void gerarCodigos(Caracter *no, char *codigoAtual, int profundidade, CodigoHuffm
 
     if (no->esquerda) {
         codigoAtual[profundidade] = '0';
-        gerarCodigos(no->esquerda, codigoAtual, profundidade + 1, tabela, indice);
+        criarRepresentação(no->esquerda, codigoAtual, profundidade + 1, tabela, indice);
     }
 
     if (no->direita) {
         codigoAtual[profundidade] = '1';
-        gerarCodigos(no->direita, codigoAtual, profundidade + 1, tabela, indice);
+        criarRepresentação(no->direita, codigoAtual, profundidade + 1, tabela, indice);
     }
 }
-void reconstruirArvoreDeTabela(Caracter **raiz, unsigned char caracter, const char *codigo) {
+
+char* encontrarCodigo(unsigned char caracter, CodigoHuffman *tabela, int tamanhoTabela) {
+        for (int i = 0; i < tamanhoTabela; i++) {
+            if (tabela[i].caracter == caracter) {
+                return tabela[i].codigo;
+            }
+        }
+        return NULL;
+}
+
+void criarCompactado(char *arquivoOriginal, char *arquivoCompactado, CodigoHuffman *tabela, int tamanhoTabela) {
+    FILE *entrada = fopen(arquivoOriginal, "r");
+    FILE *saida = fopen(arquivoCompactado, "wb");
+
+    if (!entrada || !saida) {
+        printf("Erro ao abrir arquivo.\n");
+        return;
+    }
+
+    fwrite(&tamanhoTabela, sizeof(int), 1, saida);
+
+    for (int i = 0; i < tamanhoTabela; i++) {
+        fputc(tabela[i].caracter, saida);
+        int comprimentoCodigo = strlen(tabela[i].codigo);
+        fputc(comprimentoCodigo, saida);
+        fwrite(tabela[i].codigo, sizeof(char), comprimentoCodigo, saida);
+    }
+
+    unsigned char byte = 0;
+    int bits = 0;
+
+    int caracter = fgetc(entrada);
+    while (caracter != EOF) {
+        char *codigo = encontrarCodigo((unsigned char)caracter, tabela, tamanhoTabela);
+        
+        for (int i = 0; codigo[i] != '\0'; i++) {
+
+            if (codigo[i] == '1') {
+                byte |= (1 << (7 - bits));
+            }
+            bits++;
+             printf("Bit: %d\n", codigo[i] - '0'); // Converte '0'/'1' para 0/1
+        printf("Byte atual: %02X, Bits utilizados: %d\n", byte, bits);
+
+            if (bits == 8) { 
+                fputc(byte, saida);
+                byte = 0;
+                bits = 0;
+            }
+        }
+
+        caracter = fgetc(entrada);
+    }
+
+    if (bits > 0) {
+        fputc(byte, saida);
+    }
+
+    fclose(entrada);
+    fclose(saida);
+}
+
+void refazerArvore(Caracter **raiz, unsigned char caracter, const char *codigo) {
     Caracter *atual = *raiz;
+
     for (int i = 0; codigo[i] != '\0'; i++) {
         if (codigo[i] == '0') {
             if (atual->esquerda == NULL) atual->esquerda = novoCaracter('\0', 0);
@@ -102,21 +167,102 @@ void reconstruirArvoreDeTabela(Caracter **raiz, unsigned char caracter, const ch
     atual->caracter = caracter;
 }
 
-Caracter* lerTabelaEReconstruirArvore(FILE *arquivo) {
+Caracter* pegarTabela(FILE *arquivo) {
     int tamanhoTabela;
     fread(&tamanhoTabela, sizeof(int), 1, arquivo);
 
     Caracter *raiz = novoCaracter('\0', 0);
+
     for (int i = 0; i < tamanhoTabela; i++) {
         unsigned char caracter = fgetc(arquivo);
         int comprimentoCodigo = fgetc(arquivo);
         char codigo[comprimentoCodigo + 1];
         fread(codigo, sizeof(char), comprimentoCodigo, arquivo);
         codigo[comprimentoCodigo] = '\0';
-        reconstruirArvoreDeTabela(&raiz, caracter, codigo);
+        refazerArvore(&raiz, caracter, codigo);
     }
 
     return raiz;
+}
+
+void descompactar(char *arquivoCompactado, char *arquivoDescompactado) {
+    char * nomeCompactado = malloc(1000 * sizeof(char));
+    sprintf(nomeCompactado,"Arquivos_Compactados/%s.bin",arquivoCompactado);
+    char* nomeDescompactado = malloc(1000 * sizeof(char));
+    sprintf(nomeDescompactado,"Arquivos_Descompactados/%s",arquivoDescompactado);
+    FILE *entrada = fopen(nomeCompactado, "rb");
+    FILE *saida = fopen(nomeDescompactado, "wb");
+
+    if (!entrada) {
+        printf("Erro ao abrir arquivos.\n");
+        return;
+    }
+
+    Caracter *raiz = pegarTabela(entrada);
+
+    unsigned char byte = 0;
+    Caracter *atual = raiz;
+
+    while (fread(&byte, sizeof(unsigned char), 1, entrada) == 1) {
+        for (int i = 0; i < 8; i++) {
+            int bit = (byte >> (7 - i)) & 1;
+            printf("Bit: %d\n", bit);
+            if (bit == 0) atual = atual->esquerda;
+            else atual = atual->direita;
+
+            if (atual->esquerda == NULL && atual->direita == NULL) {
+                fputc(atual->caracter, saida);
+                printf("Caractere escrito: %c\n", atual->caracter);
+                atual = raiz;
+            }
+        }
+    }
+
+    printf("\nArquivo descompactado com sucesso!");
+
+    free(nomeCompactado);
+    free(nomeDescompactado);
+
+    fclose(entrada);
+    fclose(saida);
+}
+
+void compactar(char * original, char * novo){
+    FILE *arquivo;
+    int caracter;
+    Caracter *lista = NULL;
+    char * nomeOriginal = malloc(1000 * sizeof(char));
+    sprintf(nomeOriginal,"Arquivos_Originais/%s",original);
+    char* nomeNovo = malloc(1000 * sizeof(char));
+    sprintf(nomeNovo,"Arquivos_Compactados/%s.bin",novo);
+
+    arquivo = fopen(nomeOriginal, "r");
+    if (arquivo == NULL) {
+        printf("Erro ao abrir o arquivo.\n");
+        return;
+    }
+
+    while ((caracter = fgetc(arquivo)) != EOF) {
+        lista = adicionarCaracter(lista, (unsigned char)caracter);
+    }
+
+    fclose(arquivo);
+    
+    Caracter *raiz = construirArvoreHuffman(lista);
+    CodigoHuffman tabela[256];
+    char codigoAtual[256];
+    int indice = 0;
+    criarRepresentação(raiz, codigoAtual, 0, tabela, &indice);
+    criarCompactado(nomeOriginal,nomeNovo,tabela,indice);
+    
+    printf("\nArquivo compactado com sucesso!\n\n");
+    
+    liberarLista(lista);
+    lista = NULL;
+    liberarLista(raiz);
+    raiz = NULL;
+    free(nomeNovo);
+    free(nomeOriginal);
 }
 
 
@@ -127,135 +273,4 @@ void liberarLista(Caracter *lista) {
         free(atual);
         atual = proximo;
     }
-}
-
-
-
-
-
-void descompactarArquivo(char *arquivoCompactado, char *arquivoDescompactado) {
-    FILE *entrada = fopen(arquivoCompactado, "rb");
-    FILE *saida = fopen(arquivoDescompactado, "wb");
-
-    if (!entrada || !saida) {
-        printf("Erro ao abrir arquivos.\n");
-        return;
-    }
-
-    Caracter *raiz = lerTabelaEReconstruirArvore(entrada);
-
-    unsigned char buffer = 0;
-    int contadorBits = 0;
-    Caracter *atual = raiz;
-
-    while (fread(&buffer, sizeof(unsigned char), 1, entrada) == 1) {
-        for (int i = 0; i < 8; i++) {
-            int bit = (buffer >> (7 - i)) & 1;
-
-            if (bit == 0) atual = atual->esquerda;
-            else atual = atual->direita;
-
-            if (atual->esquerda == NULL && atual->direita == NULL) {
-                fputc(atual->caracter, saida);
-                atual = raiz;
-            }
-        }
-    }
-
-    fclose(entrada);
-    fclose(saida);
-}
-
-    // Função para encontrar o código de um caractere na tabela
-char* encontrarCodigo(unsigned char caracter, CodigoHuffman *tabela, int tamanhoTabela) {
-        for (int i = 0; i < tamanhoTabela; i++) {
-            if (tabela[i].caracter == caracter) {
-                return tabela[i].codigo;
-            }
-        }
-        return NULL;
-}
-
-void escreverArquivoCompactado(char *arquivoOriginal, char *arquivoCompactado, CodigoHuffman *tabela, int tamanhoTabela) {
-    FILE *entrada = fopen(arquivoOriginal, "r");
-    FILE *saida = fopen(arquivoCompactado, "wb");
-
-    if (!entrada || !saida) {
-        printf("Erro ao abrir arquivo.\n");
-        return;
-    }
-
-    // Escreve o tamanho da tabela para que seja mais fácil reconstruir na descompactação
-    fwrite(&tamanhoTabela, sizeof(int), 1, saida);
-
-    // Escreve cada caractere e seu código de Huffman na tabela
-    for (int i = 0; i < tamanhoTabela; i++) {
-        fputc(tabela[i].caracter, saida);
-        int comprimentoCodigo = strlen(tabela[i].codigo);
-        fputc(comprimentoCodigo, saida);
-        fwrite(tabela[i].codigo, sizeof(char), comprimentoCodigo, saida);
-    }
-
-    unsigned char buffer = 0;
-    int contadorBits = 0;
-
-    // Codificação do conteúdo do arquivo original
-    int caracter = fgetc(entrada);
-    while (caracter != EOF) {
-        char *codigo = encontrarCodigo((unsigned char)caracter, tabela, tamanhoTabela);
-        
-        for (int i = 0; codigo[i] != '\0'; i++) {
-            if (codigo[i] == '1') {
-                buffer |= (1 << (7 - contadorBits)); // Adiciona o bit 1
-            }
-            contadorBits++;
-
-            if (contadorBits == 8) {  // Escreve um byte completo no arquivo de saída
-                fputc(buffer, saida);
-                buffer = 0;
-                contadorBits = 0;
-            }
-        }
-
-        caracter = fgetc(entrada);
-    }
-
-    // Grava o restante do buffer se houver bits não escritos
-    if (contadorBits > 0) {
-        fputc(buffer, saida);
-    }
-
-    fclose(entrada);
-    fclose(saida);
-}
-
-void compactar(char * original, char * novo){
-    FILE *arquivo;
-    int caracter;
-    Caracter *lista = NULL;
-
-    arquivo = fopen("Exemplo.txt", "r");
-    if (arquivo == NULL) {
-        printf("Erro ao abrir o arquivo.\n");
-        return;
-    }
-
-    // Ler e processar cada caractere do arquivo
-    while ((caracter = fgetc(arquivo)) != EOF) {
-        lista = adicionarCaracter(lista, (unsigned char)caracter);
-    }
-
-    fclose(arquivo);
-    
-    Caracter *raiz = construirArvoreHuffman(lista);
-     CodigoHuffman tabela[256];  // Tabela para armazenar os códigos (assumindo 256 caracteres únicos)
-    char codigoAtual[256];
-    int indice = 0;
-    gerarCodigos(raiz, codigoAtual, 0, tabela, &indice);
-
-    // Escrever arquivo compactado
-    escreverArquivoCompactado(original,novo,tabela,indice);
-
-
-    liberarLista(lista);
 }

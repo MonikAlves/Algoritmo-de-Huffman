@@ -5,16 +5,14 @@
 #include "menu.h"
 
 int main() {
-    CodigoHuffman tabela[256];
-    int tamanhoTabela = 0;
     int opcao;
 
-    do {
+    while (opcao != 3) {
         exibirMenu();
         printf("Escolha uma opção: ");
         scanf("%d%*c", &opcao);
-        executarOpcao(opcao, tabela, tamanhoTabela);
-    } while (opcao != 3);
+        executarOpcao(opcao);
+    }
 
     return 0;
 }
