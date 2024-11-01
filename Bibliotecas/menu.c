@@ -14,7 +14,7 @@ void limparTerminal() {
 void exibirMenu() {
     limparTerminal();
     printf("=============================\n");
-    printf("=       Huffman Tree        =\n");
+    printf("=          Huffman          =\n");
     printf("=============================\n");
     printf("= 1. Compactar Arquivo      =\n");
     printf("= 2. Descompactar Arquivo   =\n");
@@ -38,8 +38,8 @@ long tamanhoArquivo(char * caminho){
 void compararTamanhoArquivos(char *arquivo1, char *arquivo2){
     char * caminho1 = malloc(1000 * sizeof(char));
     char * caminho2 = malloc(1000 * sizeof(char));
-    sprintf(caminho1,"Arquivos_Originais/%s",arquivo1);
-    sprintf(caminho2,"Arquivos_Compactados/%s.bin",arquivo2);
+    sprintf(caminho1,"Arquivos_Originais/%s.txt",arquivo1);
+    sprintf(caminho2,"Arquivos_Compactados/%s.huff",arquivo2);
     long tamanho1 = tamanhoArquivo(caminho1);
     long tamanho2 = tamanhoArquivo(caminho2);
 
@@ -97,6 +97,8 @@ void executarOpcao(int opcao) {
 
         case 3:  // Sair
             printf("Saindo do programa...\n");
+            free(arquivoCompactado);
+            free(arquivoOriginal);
             break;
 
         default:

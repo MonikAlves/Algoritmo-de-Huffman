@@ -114,9 +114,13 @@ void criarCompactado(char *arquivoOriginal, char *arquivoCompactado, CodigoHuffm
     for (int i = 0; i < tamanhoTabela; i++) {
         fputc(tabela[i].caracter, saida);
         int comprimentoCodigo = strlen(tabela[i].codigo);
-        fputc(comprimentoCodigo, saida);
+        fwrite(&comprimentoCodigo, sizeof(int), 1, saida); // Escrito como int
         fwrite(tabela[i].codigo, sizeof(char), comprimentoCodigo, saida);
     }
+
+    long posPadding = ftell(saida);
+    unsigned char padding = 0;
+    fputc(padding, saida);
 
     unsigned char byte = 0;
     int bits = 0;
@@ -131,8 +135,6 @@ void criarCompactado(char *arquivoOriginal, char *arquivoCompactado, CodigoHuffm
                 byte |= (1 << (7 - bits));
             }
             bits++;
-             printf("Bit: %d\n", codigo[i] - '0'); // Converte '0'/'1' para 0/1
-        printf("Byte atual: %02X, Bits utilizados: %d\n", byte, bits);
 
             if (bits == 8) { 
                 fputc(byte, saida);
@@ -146,7 +148,12 @@ void criarCompactado(char *arquivoOriginal, char *arquivoCompactado, CodigoHuffm
 
     if (bits > 0) {
         fputc(byte, saida);
+        padding = 8 - bits; 
+    } else {
+        padding = 0;
     }
+    fseek(saida, posPadding, SEEK_SET);
+    fputc(padding, saida);
 
     fclose(entrada);
     fclose(saida);
@@ -175,11 +182,13 @@ Caracter* pegarTabela(FILE *arquivo) {
 
     for (int i = 0; i < tamanhoTabela; i++) {
         unsigned char caracter = fgetc(arquivo);
-        int comprimentoCodigo = fgetc(arquivo);
-        char codigo[comprimentoCodigo + 1];
+        int comprimentoCodigo;
+        fread(&comprimentoCodigo, sizeof(int), 1, arquivo);
+        char *codigo = malloc((comprimentoCodigo + 1) * sizeof(char));
         fread(codigo, sizeof(char), comprimentoCodigo, arquivo);
         codigo[comprimentoCodigo] = '\0';
         refazerArvore(&raiz, caracter, codigo);
+        free(codigo); 
     }
 
     return raiz;
@@ -187,9 +196,9 @@ Caracter* pegarTabela(FILE *arquivo) {
 
 void descompactar(char *arquivoCompactado, char *arquivoDescompactado) {
     char * nomeCompactado = malloc(1000 * sizeof(char));
-    sprintf(nomeCompactado,"Arquivos_Compactados/%s.bin",arquivoCompactado);
+    sprintf(nomeCompactado,"Arquivos_Compactados/%s.huff",arquivoCompactado);
     char* nomeDescompactado = malloc(1000 * sizeof(char));
-    sprintf(nomeDescompactado,"Arquivos_Descompactados/%s",arquivoDescompactado);
+    sprintf(nomeDescompactado,"Arquivos_Descompactados/%s.txt",arquivoDescompactado);
     FILE *entrada = fopen(nomeCompactado, "rb");
     FILE *saida = fopen(nomeDescompactado, "wb");
 
@@ -200,19 +209,38 @@ void descompactar(char *arquivoCompactado, char *arquivoDescompactado) {
 
     Caracter *raiz = pegarTabela(entrada);
 
+    unsigned char padding;
+    fread(&padding, sizeof(unsigned char), 1, entrada);
+
+    long bits = ftell(entrada);
+
+    fseek(entrada, 0, SEEK_END);
+    long tamanhoArquivo = ftell(entrada);
+    long tamanhoBitstream = tamanhoArquivo - bits;
+
+    fseek(entrada, bits, SEEK_SET);
+
     unsigned char byte = 0;
     Caracter *atual = raiz;
 
-    while (fread(&byte, sizeof(unsigned char), 1, entrada) == 1) {
-        for (int i = 0; i < 8; i++) {
-            int bit = (byte >> (7 - i)) & 1;
-            printf("Bit: %d\n", bit);
-            if (bit == 0) atual = atual->esquerda;
-            else atual = atual->direita;
+    for (long i = 0; i < tamanhoBitstream; i++) {
+        fread(&byte, sizeof(unsigned char), 1, entrada);
+        int bitLer = 8;
+
+        if (i == tamanhoBitstream - 1 && padding > 0) {
+            bitLer = 8 - padding;
+        }
+
+        for (int bit = 0; bit < bitLer; bit++) {
+            int bitAtual = (byte >> (7 - bit)) & 1;
+            if (bitAtual == 0) {
+                atual = atual->esquerda;
+            } else {
+                atual = atual->direita;
+            }
 
             if (atual->esquerda == NULL && atual->direita == NULL) {
                 fputc(atual->caracter, saida);
-                printf("Caractere escrito: %c\n", atual->caracter);
                 atual = raiz;
             }
         }
@@ -232,9 +260,9 @@ void compactar(char * original, char * novo){
     int caracter;
     Caracter *lista = NULL;
     char * nomeOriginal = malloc(1000 * sizeof(char));
-    sprintf(nomeOriginal,"Arquivos_Originais/%s",original);
+    sprintf(nomeOriginal,"Arquivos_Originais/%s.txt",original);
     char* nomeNovo = malloc(1000 * sizeof(char));
-    sprintf(nomeNovo,"Arquivos_Compactados/%s.bin",novo);
+    sprintf(nomeNovo,"Arquivos_Compactados/%s.huff",novo);
 
     arquivo = fopen(nomeOriginal, "r");
     if (arquivo == NULL) {
