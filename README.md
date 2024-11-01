@@ -10,6 +10,9 @@ Este projeto implementa o algoritmo de compressão de Huffman para arquivos de t
 
 - **Descompactação de Arquivos de Texto**  
   - O sistema permite descompactar os arquivos binários previamente comprimidos. Os arquivos descompactados são restaurados e salvos na pasta `Arquivos_Descompactados`.
+ 
+- **Exemplos de Texto**  
+  - Na pasta `Arquivos_Originais`, você encontrará três exemplos de arquivos de texto (pequeno, médio e grande), que podem ser usados para testar as funcionalidades de compactação e descompactação do sistema.
 
 ## Instruções para Uso
 1. **Preparação dos Arquivos**  
